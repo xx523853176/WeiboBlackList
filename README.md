@@ -1,34 +1,30 @@
-# WeiboBlackList
+﻿# WeiboBlackList
 微博批量拉黑
 
-## 安装
-### 1. 下载
-![download](download.png)
+exe文件夹内为windows运行程序，含控制台显示进度。
+list.txt中为 现有微博监督员 的 UID。
 
-### 2. 安装 Python
-[Python 3.6.3](https://www.python.org/downloads/release/python-363/)
-选择对应版本安装
+*****使用前可能需要：
+1、下载fiddler并安装。
+2、登录网页版微博，找到一个用户，准备拉黑。
+3、打开 Fiddler并清空记录。
+4、拉黑刚刚准备的测试用户。
+5、在 Fiddler 中选中对应请求，选择 Raw 格式进行查看，并将结果复制到 http.txt 中。
 
-### 3. 安装 Fiddler
-[官网](http://www.telerik.com/fiddler)
-
-也可以 360软件管家 直接搜索安装
-
-## 运行
-1. 登录网页版微博，找到一个用户，准备拉黑。
-2. 打开 Fiddler 
-3. 拉黑刚刚准备的测试用户
-4. 如下图所示，在 Fiddler 中选中对应请求，选择 Raw 格式进行查看，并将结果复制到 http.txt 中
-6. 在当前文件夹打开命令行，执行 `python run.py` ， 就能拉黑 list.txt 中的所有用户。
-
-![fiddler](fiddler.png)
+*****注意：
+目前已定义一个header文件，一般来说不需要调整。
+若无法正常拉黑，请参考“*****使用前可能需要”部分执行。
 
 
-## 说明
+建议：
+随时关注更新list.txt文件，并留作备份。
+方便知晓现已拉黑的人。
+使用时将list.txt中的内容复制到“黑名单修改”（blacklist.txt）或“白名单修改”（whitelist.txt）中，并使用即可。
+
+
+
+## 原说明
 list.txt 中是 微博监督员 关注列表前 100 个用户的 UID。 现在微博只能查看前 5 页关注列表，所以不能获取全部 400 多个微博监督员的 UID。 
 
 欢迎大家补充 微博监督员 的 UID 到 list.txt。网页版微博打开主页，第一串数字就是 UID。 
-![uid](uid.png)
 
-## 问题
-其实我对 Python 不是很熟悉，感觉 `request.urlopen` 慢的不可思议。
