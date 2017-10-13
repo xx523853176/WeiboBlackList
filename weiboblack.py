@@ -4,8 +4,9 @@
 import sys
 import os
 
-from urllib import request, parse
-import re
+import requests
+import json
+
 from tkinter import *
 import tkinter as tk
 from tkinter import ttk
@@ -50,56 +51,158 @@ def createToolTip( widget, text):
     widget.bind('<Leave>', leave)
 
 
-def read_header(txt):
-# 加载 HTTP 请求设置
-    with open(txt, 'rb') as f:
-        s = f.read().decode('utf-8')
-        s = s.strip().split('\n')
-        url = re.findall(r'http\S+', s[0])[0]
-        headers = dict()
-        for k in range(2, len(s) - 2):
-            ss = s[k]
-            idx = ss.index(':')
-            headers[ss[0:idx].strip()] = ss[(idx + 1):].strip()
-    return url, headers
 
-def read_list(txt):
+
+# 微博屏蔽的接口
+black_url = 'https://weibo.com/aj/filter/block?ajwvr=6'
+white_url = 'https://weibo.com/aj/f/delblack?ajwvr=6'
+#全局函数微博登陆session
+global weibosession
+
+
+#微博登陆类，继承requests.Session
+class WeiboSession(requests.Session):
+    def __init__(self, username, password):
+        super(WeiboSession, self).__init__()
+        self.__username = username
+        self.__password = password
+
+    def __del__(self):
+        self.close()
+
+    def login(self):
+        loginURL = "http://passport.weibo.cn/sso/login"
+        data = {
+            "username": self.__username,
+            "password": self.__password,
+            "savestate": "1",
+            "r": "http://m.weibo.cn/",
+            "ec": "0",
+            "entry": "mweibo",
+            "mainpageflag": "1",
+        }
+        self.headers.update({
+            "Referer": "http://passport.weibo.cn/signin/login?entry=mweibo&res=wel&wm=3349&r=http%3A%2F%2Fm.weibo.cn%2F&sudaref=passport.weibo.cn&retcode=6102",
+        })
+        retJson = self.post(loginURL, data=data).json()
+        if retJson["retcode"] == 20000000:
+            for tmpURL in retJson["data"]["crossdomainlist"].values():
+                self.get(tmpURL)
+            myURL = "http://weibo.cn/"
+            self.get(myURL)
+            print(self.get(myURL))
+            print('登陆成功\n')
+            lb_log_state.configure(text='已登录~！', style="YH10blue.TLabel")
+
+def login_weibo(user, pw):
+#微博登陆、定义全局session
+    global weibosession
+    try:
+        weibosession = WeiboSession(user, pw)
+        weibosession.headers.update(
+            {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36"})
+        weibosession.login()
+    except Exception as e:
+        print(e)
+    finally:
+        pass
+
+
+def txt_to_list(txt):
 # 读取名单列表
-    with open(txt) as f:
-        lst = f.read().strip().split('\n')
+    with open(txt, 'r') as f:
+        lst = f.read().replace(' ','').split('\n')
+        lst = [x for x in lst if x!='']
     return lst
 
-def add_blacklist(url, headers, lst):
-# 逐个加入黑名单
-    for uid in lst:
-        print(uid)
-        req = request.Request(url, headers=headers)
-        data = {'uid': uid, 'filter_type':'1', 'status':'1',
-                'interact':'1', 'follow':'1'}
-        f = request.urlopen(req, data=parse.urlencode(data).encode('utf8'))
-        f.close()
+def list_to_txt(lst, txt):
+# 列表写入txt
+    with open(txt, 'w') as f:
+        for i in lst:
+            f.write(i)
+            f.write('\n')
 
-def quit_blacklist(url, headers, lst):
-# 逐个拉出黑名单
+
+def add_blacklist(url, lst):
+# 逐个加入黑名单
+    global weibosession
+    black_data = {'uid': '',
+                  'filter_type':'1',
+                  'status':'1',
+                  'interact':'1',
+                  'follow':'1'}
     for uid in lst:
-        print(uid)
-        req = request.Request(url, headers=headers)
-        data = {'uid': uid, 'f':'1', 'status':'1', 'oid': uid, 'wforce':'1'}
-        f = request.urlopen(req, data=parse.urlencode(data).encode('utf-8'))
-        f.close()
+        black_data['uid'] = uid
+        weibosession.headers['Referer'] = 'http://weibo.com/u/' + uid
+        retText = weibosession.post(url, data=black_data).text
+        retJson = json.loads(retText)
+        print("屏蔽用户：%s 结果：%s" % (uid, retJson["msg"]))
+
+def quit_blacklist(url, lst):
+# 逐个拉出黑名单
+    global weibosession
+    white_data = {'uid': '',
+                  'f':'1',
+                  'status':'1',
+                  'oid': uid,
+                  'wforce':'1'}
+    for uid in lst:
+        white_data['uid'] = uid
+        weibosession.headers['Referer'] = 'http://weibo.com/u/' + uid
+        retText = weibosession.post(url, data=white_data).text
+        retJson = json.loads(retText)
+        print("取消屏蔽用户：%s 结果：%s" % (uid, retJson["msg"]))
+
+
+def into_done(lst, txt):
+#使用lst的原因，在进行屏蔽or解除操作时，已经先读取过了
+    done0 = txt_to_list(txt)
+    done = set(done0).union(set(lst))
+    list_to_txt(done, txt)
+    
+def out_done(lst, txt):
+#使用lst的原因，在进行屏蔽or解除操作时，已经先读取过了
+    done0 = txt_to_list(txt)
+    done = [x for x in done0 if x not in lst]
+    list_to_txt(done, txt)
+    
 
 def blackit():
-    url, headers = read_header('bin\\blackhttp.txt')
-    lst = read_list('bin\\blacklist.txt')
-    add_blacklist(url, headers, lst)
-    print('black done...')
+    global weibosession
+    try:
+        lst = txt_to_list('bin\\blacklist.txt')
+        add_blacklist(black_url, lst)
+        into_done(lst, 'bin\\done.txt')
+        print('black done......\n')
+    except Exception as e:
+        print(e)
+    finally:
+        pass
 
 def whiteit():
-    url, headers = read_header('bin\\whitehttp.txt')
-    lst = read_list('bin\\whitelist.txt')
-    quit_blacklist(url, headers, lst)
-    print('white done...')
+    global weibosession
+    try:
+        lst = txt_to_list('bin\\whitelist.txt')
+        add_blacklist(white_url, lst)
+        out_done(lst, 'bin\\done.txt')
+        print('white done......\n')
+    except Exception as e:
+        print(e)
+    finally:
+        pass
+    
 
+def disp_info(txt):
+#显示拉黑人员，并统计个数
+    lst = txt_to_list(txt)
+    print('\n已拉黑人员uid如下：')
+    for i in lst:
+        print('--'+i)
+    print('>>>共计拉黑人数为： %s\n' % len(lst))
+
+
+
+#创建窗体GUI
 win = tk.Tk()
 win.title('微博黑名单工具-v1.0.20171011')
 '''
@@ -110,48 +213,74 @@ win.maxsize(cur_width, cur_height)
 win.minsize(cur_width, cur_height)
 '''
 
+
 #模块字体风格
 style = ttk.Style()
 style.configure("BW.TLabel", font=("Times", "9",'bold'))
-style.configure("YH10yellow.TLabel", font=("微软雅黑", "9",'bold'), foreground  = 'orange')
-style.configure("YH10purple.TLabel", font=("微软雅黑", "9",'bold'), foreground  = 'purple')
+style.configure("YH10red.TLabel", font=("微软雅黑", "9",'bold'), foreground  = 'red')
 style.configure("YH10blue.TLabel", font=("微软雅黑", "9",'bold'), foreground  = 'blue')
 style.configure("YH10black.TLabel", font=("微软雅黑", "9",'bold'), foreground  = 'black')
+
 style.configure("YH10red.TButton", font=("微软雅黑", "9",'bold'), foreground  = 'red')
 style.configure("YH10blue.TButton", font=("微软雅黑", "9",'bold'), foreground  = 'blue')
+style.configure("YH10black.TButton", font=("微软雅黑", "9",'bold'), foreground  = 'black')
+
+
+
+lf0 = ttk.LabelFrame(win, text='微博登陆')
+lf0.grid(row=1, column=1, columnspan=100, padx=10, pady=10, sticky='N')
+for i in [0,10,20,30,100]:
+    lf0.rowconfigure(i, minsize=10)
+    lf0.columnconfigure(i, minsize=10)
+
+lb_log_state = ttk.Label(lf0, text='未登录……', style="YH10red.TLabel")
+lb_log_state.grid(row=1, column=5, columnspan=30, sticky='N')
+ttk.Label(lf0, text='用户名：').grid(
+    row=11, column=11, sticky='E')
+entry_username = ttk.Entry(lf0, width=30)
+entry_username.grid(row=11, column=21, sticky='W')
+ttk.Label(lf0, text='密码：').grid(
+    row=21, column=11, sticky='E')
+entry_password = ttk.Entry(lf0, width=30)
+entry_password.grid(row=21, column=21, sticky='W')
+
+bt_login = ttk.Button(lf0, text=' 登  陆 ', width=10,
+                      command=lambda:login_weibo(entry_username.get(),
+                                                 entry_password.get()),
+                      style='YH10black.TButton')
+bt_login.grid(row=31, column=5, columnspan=30, sticky='N')
 
 
 lf1 = ttk.LabelFrame(win, text='功能操作')
-lf1.grid(row=1, column=1, columnspan=100, padx=10, pady=10, sticky='N')
-
+lf1.grid(row=11, column=1, columnspan=100, padx=10, pady=10, sticky='N')
 for i in [0,10,20,100]:
     lf1.rowconfigure(i, minsize=10)
     lf1.columnconfigure(i, minsize=10)
     
-bt_blackheader = ttk.Button(lf1, text='黑名单 header 修改', width=20,
-                            command=lambda:os.startfile('bin\\blackhttp.txt', 'open'),
-                            style='YH10red.TButton')
-bt_blackheader.grid(row=1, column=1, sticky='N')
-bt_black = ttk.Button(lf1, text='黑名单 修改', width=20,
+bt_black = ttk.Button(lf1, text='黑名单 修改', width=25,
                       command=lambda:os.startfile('bin\\blacklist.txt', 'open'),
                       style='YH10red.TButton')
-bt_black.grid(row=11, column=1, sticky='N')
-bt_blackit = ttk.Button(lf1, text='加入黑名单！', width=20,
+bt_black.grid(row=1, column=1, sticky='N')
+bt_blackit = ttk.Button(lf1, text='加入黑名单！', width=25,
                         command=blackit, style='YH10red.TButton')
-bt_blackit.grid(row=21, column=1, sticky='N')
+bt_blackit.grid(row=1, column=21, sticky='N')
 
-bt_whiteheader = ttk.Button(lf1, text='白名单 header 修改', width=20,
-                            command=lambda:os.startfile('bin\\whitehttp.txt', 'open'),
-                            style='YH10blue.TButton')
-bt_whiteheader.grid(row=1, column=21, sticky='N')
-bt_white = ttk.Button(lf1, text='白名单 修改', width=20,
+bt_white = ttk.Button(lf1, text='白名单 修改', width=25,
                       command=lambda:os.startfile('bin\\whitelist.txt', 'open'),
                       style='YH10blue.TButton')
-bt_white.grid(row=11, column=21, sticky='N')
-bt_blackit = ttk.Button(lf1, text='拉出黑名单……', width=20,
+bt_white.grid(row=11, column=1, sticky='N')
+bt_blackit = ttk.Button(lf1, text='拉出黑名单……', width=25,
                         command=whiteit, style='YH10blue.TButton')
-bt_blackit.grid(row=21, column=21, sticky='N')
+bt_blackit.grid(row=11, column=21, sticky='N')
 
+bt_white = ttk.Button(lf1, text='查看已拉黑名单文件', width=25,
+                      command=lambda:os.startfile('bin\\done.txt', 'open'),
+                      style='YH10blue.TButton')
+bt_white.grid(row=21, column=1, sticky='N')
+bt_blackit = ttk.Button(lf1, text='列出已拉黑人员（及个数）', width=25,
+                        command=lambda:disp_info('bin\\done.txt'),
+                        style='YH10blue.TButton')
+bt_blackit.grid(row=21, column=21, sticky='N')
 
 
 
