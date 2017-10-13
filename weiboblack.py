@@ -11,6 +11,8 @@ from tkinter import *
 import tkinter as tk
 from tkinter import ttk
 
+#版本号：
+version = 'v1.1.20171014'
 
 #由于tkinter中没有ToolTip功能，所以自定义这个功能如下
 class ToolTip(object):
@@ -204,7 +206,7 @@ def disp_info(txt):
 
 #创建窗体GUI
 win = tk.Tk()
-win.title('微博黑名单工具-v1.0.20171011')
+win.title('微博黑名单工具-'+version)
 '''
 #设置窗体大小
 cur_width = 450#宽
@@ -219,6 +221,7 @@ style = ttk.Style()
 style.configure("BW.TLabel", font=("Times", "9",'bold'))
 style.configure("YH10red.TLabel", font=("微软雅黑", "9",'bold'), foreground  = 'red')
 style.configure("YH10blue.TLabel", font=("微软雅黑", "9",'bold'), foreground  = 'blue')
+style.configure("YH10grey.TLabel", font=("微软雅黑", "9",'bold'), foreground  = 'grey')
 style.configure("YH10black.TLabel", font=("微软雅黑", "9",'bold'), foreground  = 'black')
 
 style.configure("YH10red.TButton", font=("微软雅黑", "9",'bold'), foreground  = 'red')
@@ -282,6 +285,17 @@ bt_blackit = ttk.Button(lf1, text='列出已拉黑人员（及个数）', width=
                         style='YH10blue.TButton')
 bt_blackit.grid(row=21, column=21, sticky='N')
 
+
+lfn = ttk.LabelFrame(win, text='信  息')
+lfn.grid(row=21, column=1, columnspan=100, padx=10, pady=10, sticky='N')
+for i in [0,100]:
+    lfn.columnconfigure(i, minsize=10)
+lfn.rowconfigure(100, minsize=8)
+
+ttk.Label(lfn, text='Author：', style="YH10grey.TLabel").grid(row=1, column=15, sticky='N')
+ttk.Label(lfn, text='HUSKY(xx523853176)', style="YH10grey.TLabel").grid(row=1, column=16, sticky='N')
+ttk.Label(lfn, text='Version：', style="YH10grey.TLabel").grid(row=11, column=15, sticky='N')
+ttk.Label(lfn, text=version, style="YH10grey.TLabel").grid(row=11, column=16, sticky='N')
 
 
 win.mainloop()
