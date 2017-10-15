@@ -3,16 +3,20 @@
 
 import sys
 import os
+import time
 
 import requests
 import json
+import webbrowser
+import random
 
 from tkinter import *
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox
 
 #版本号：
-version = 'v1.1.20171014'
+version = 'v1.2.20171015'
 
 #由于tkinter中没有ToolTip功能，所以自定义这个功能如下
 class ToolTip(object):
@@ -54,13 +58,17 @@ def createToolTip( widget, text):
 
 
 
-
+########################################
+########################################
 # 微博屏蔽的接口
 black_url = 'https://weibo.com/aj/filter/block?ajwvr=6'
 white_url = 'https://weibo.com/aj/f/delblack?ajwvr=6'
 #全局函数微博登陆session
 global weibosession
-
+#全局函数，发包时间
+global mintime
+global maxtime
+    
 
 #微博登陆类，继承requests.Session
 class WeiboSession(requests.Session):
@@ -95,6 +103,7 @@ class WeiboSession(requests.Session):
             print(self.get(myURL))
             print('登陆成功\n')
             lb_log_state.configure(text='已登录~！', style="YH10blue.TLabel")
+            bt_login.configure(state='disable')
 
 def login_weibo(user, pw):
 #微博登陆、定义全局session
@@ -139,6 +148,7 @@ def add_blacklist(url, lst):
         retText = weibosession.post(url, data=black_data).text
         retJson = json.loads(retText)
         print("屏蔽用户：%s 结果：%s" % (uid, retJson["msg"]))
+        time.sleep( random.uniform(mintime,maxtime) )
 
 def quit_blacklist(url, lst):
 # 逐个拉出黑名单
@@ -154,6 +164,7 @@ def quit_blacklist(url, lst):
         retText = weibosession.post(url, data=white_data).text
         retJson = json.loads(retText)
         print("取消屏蔽用户：%s 结果：%s" % (uid, retJson["msg"]))
+        time.sleep( random.uniform(mintime,maxtime) )
 
 
 def into_done(lst, txt):
@@ -203,17 +214,18 @@ def disp_info(txt):
     print('>>>共计拉黑人数为： %s\n' % len(lst))
 
 
-
+########################################
+########################################
 #创建窗体GUI
 win = tk.Tk()
 win.title('微博黑名单工具-'+version)
-'''
+
 #设置窗体大小
-cur_width = 450#宽
-cur_height = 100#高
+cur_width = 435#宽
+cur_height = 600#高
 win.maxsize(cur_width, cur_height)
 win.minsize(cur_width, cur_height)
-'''
+
 
 
 #模块字体风格
@@ -224,12 +236,19 @@ style.configure("YH10blue.TLabel", font=("微软雅黑", "9",'bold'), foreground
 style.configure("YH10grey.TLabel", font=("微软雅黑", "9",'bold'), foreground  = 'grey')
 style.configure("YH10black.TLabel", font=("微软雅黑", "9",'bold'), foreground  = 'black')
 
+style.configure("YH10info.TLabel", font=("微软雅黑", "9",), foreground  = 'black')
+style.configure("YH10url.TLabel", font=("微软雅黑", "9",), foreground  = 'blue')
+style.configure("YH10infoblue.TLabel", font=("微软雅黑", "9",'bold'), foreground  = 'blue')
+style.configure("YH10infored.TLabel", font=("微软雅黑", "9",'bold'), foreground  = 'red')
+
 style.configure("YH10red.TButton", font=("微软雅黑", "9",'bold'), foreground  = 'red')
 style.configure("YH10blue.TButton", font=("微软雅黑", "9",'bold'), foreground  = 'blue')
+style.configure("YH10orange.TButton", font=("微软雅黑", "9",'bold'), foreground  = 'orange')
 style.configure("YH10black.TButton", font=("微软雅黑", "9",'bold'), foreground  = 'black')
 
 
-
+########################################
+########################################
 lf0 = ttk.LabelFrame(win, text='微博登陆')
 lf0.grid(row=1, column=1, columnspan=100, padx=10, pady=10, sticky='N')
 for i in [0,10,20,30,100]:
@@ -240,11 +259,11 @@ lb_log_state = ttk.Label(lf0, text='未登录……', style="YH10red.TLabel")
 lb_log_state.grid(row=1, column=5, columnspan=30, sticky='N')
 ttk.Label(lf0, text='用户名：').grid(
     row=11, column=11, sticky='E')
-entry_username = ttk.Entry(lf0, width=30)
+entry_username = ttk.Entry(lf0, state='readonly', width=30)
 entry_username.grid(row=11, column=21, sticky='W')
 ttk.Label(lf0, text='密码：').grid(
     row=21, column=11, sticky='E')
-entry_password = ttk.Entry(lf0, width=30)
+entry_password = ttk.Entry(lf0, state='readonly', width=30)
 entry_password.grid(row=21, column=21, sticky='W')
 
 bt_login = ttk.Button(lf0, text=' 登  陆 ', width=10,
@@ -254,48 +273,177 @@ bt_login = ttk.Button(lf0, text=' 登  陆 ', width=10,
 bt_login.grid(row=31, column=5, columnspan=30, sticky='N')
 
 
-lf1 = ttk.LabelFrame(win, text='功能操作')
-lf1.grid(row=11, column=1, columnspan=100, padx=10, pady=10, sticky='N')
+########################################
+########################################
+mintime = 1 #发包间隔最小值
+maxtime = 2 #发包间隔最大值
+
+def set_posttime(mint, maxt):
+    global mintime
+    global maxtime
+    try:
+        mintime = float(mint)
+        maxtime = float(maxt)
+        assert(maxtime>=mintime)
+        lb_time.configure(text='当前设定： %.2f-%.2f秒间随机发送一个请求' % (mintime, maxtime))
+    except Exception as e:
+        messagebox.showinfo('Error',message='请检查是否输入正确！')
+    finally:
+        pass
+
+lf2 = ttk.LabelFrame(win, text='参数设定')
+lf2.grid(row=2, column=1, columnspan=100, padx=10, pady=10, sticky='N')
 for i in [0,10,20,100]:
-    lf1.rowconfigure(i, minsize=10)
-    lf1.columnconfigure(i, minsize=10)
+    lf2.rowconfigure(i, minsize=10)
+    lf2.columnconfigure(i, minsize=10)
+lf2.rowconfigure(12, minsize=5)
+lb_time = ttk.Label(lf2, text='当前设定： 1.00-2.00秒间随机发送一个请求', style="YH10blue.TLabel")
+lb_time.grid(row=1, column=5, columnspan=30, sticky='N')   
+ttk.Label(lf2, text='每隔多长时间发送一个拉黑or解除数据包：（单位/秒）').grid(
+    row=11, column=5, columnspan=30, sticky='N')
+ttk.Label(lf2, text='  ').grid(row=13, column=12, sticky='N')
+entry_mintime = ttk.Entry(lf2, width=10)
+entry_mintime.grid(row=13, column=13, sticky='N')
+ttk.Label(lf2, text='至').grid(row=13, column=14, sticky='N')
+entry_maxtime = ttk.Entry(lf2, width=10)
+entry_maxtime.grid(row=13, column=15, sticky='N')
+ttk.Label(lf2, text='之间').grid(row=13, column=16, sticky='N')
+
+set_login = ttk.Button(lf2, text=' 设  定 ', width=10,
+                      command=lambda:set_posttime(entry_mintime.get(),
+                                                  entry_maxtime.get()),
+                      style='YH10black.TButton')
+set_login.grid(row=21, column=5, columnspan=30, sticky='N')
+
+
+########################################
+########################################
+lf9 = ttk.LabelFrame(win, text='功能操作')
+lf9.grid(row=21, column=1, columnspan=100, padx=10, pady=10, sticky='N')
+for i in [0,10,20,100]:
+    lf9.rowconfigure(i, minsize=10)
+    lf9.columnconfigure(i, minsize=10)
     
-bt_black = ttk.Button(lf1, text='黑名单 修改', width=25,
+bt_black = ttk.Button(lf9, text='黑名单 修改', width=25,
                       command=lambda:os.startfile('bin\\blacklist.txt', 'open'),
                       style='YH10red.TButton')
 bt_black.grid(row=1, column=1, sticky='N')
-bt_blackit = ttk.Button(lf1, text='加入黑名单！', width=25,
+bt_blackit = ttk.Button(lf9, text='加入黑名单！', width=25,
                         command=blackit, style='YH10red.TButton')
 bt_blackit.grid(row=1, column=21, sticky='N')
 
-bt_white = ttk.Button(lf1, text='白名单 修改', width=25,
+bt_white = ttk.Button(lf9, text='白名单 修改', width=25,
                       command=lambda:os.startfile('bin\\whitelist.txt', 'open'),
                       style='YH10blue.TButton')
 bt_white.grid(row=11, column=1, sticky='N')
-bt_blackit = ttk.Button(lf1, text='拉出黑名单……', width=25,
+bt_blackit = ttk.Button(lf9, text='拉出黑名单……', width=25,
                         command=whiteit, style='YH10blue.TButton')
 bt_blackit.grid(row=11, column=21, sticky='N')
 
-bt_white = ttk.Button(lf1, text='查看已拉黑名单文件', width=25,
+bt_white = ttk.Button(lf9, text='查看已拉黑名单文件', width=25,
                       command=lambda:os.startfile('bin\\done.txt', 'open'),
-                      style='YH10blue.TButton')
+                      style='YH10black.TButton')
 bt_white.grid(row=21, column=1, sticky='N')
-bt_blackit = ttk.Button(lf1, text='列出已拉黑人员（及个数）', width=25,
+bt_blackit = ttk.Button(lf9, text='列出已拉黑人员（及个数）', width=25,
                         command=lambda:disp_info('bin\\done.txt'),
-                        style='YH10blue.TButton')
+                        style='YH10black.TButton')
 bt_blackit.grid(row=21, column=21, sticky='N')
 
 
-lfn = ttk.LabelFrame(win, text='信  息')
-lfn.grid(row=21, column=1, columnspan=100, padx=10, pady=10, sticky='N')
-for i in [0,100]:
-    lfn.columnconfigure(i, minsize=10)
-lfn.rowconfigure(100, minsize=8)
+########################################
+########################################
+def openurl_func(event):
+    webbrowser.open('https://github.com/xx523853176/WeiboBlackList', new=1, autoraise=True)
+    
+def about():
+    tl = tk.Toplevel()
+    tl.title("关于……")
+    tl_width = 400#宽
+    tl_height = 160#高
+    scnWidth,scnHeight = tl.maxsize()
+    tmpcnf = '%dx%d+%d+%d'%(tl_width, tl_height,
+                            (scnWidth-tl_width)/2, (scnHeight-tl_height)/2)
+    tl.geometry(tmpcnf)
+    
+    info = ttk.LabelFrame(tl, text=' 信  息 ')
+    info.grid(row=1, column=1, columnspan=100, padx=10, pady=10, sticky='N')
+    for i in [0,100]:
+        info.rowconfigure(i, minsize=10)
+        info.columnconfigure(i, minsize=20)
+        
+    ttk.Label(info, text='Author:', style="YH10info.TLabel").grid(
+        row=1, column=1, sticky='E')
+    ttk.Label(info, text='HUSKY (xx523853176)', style="YH10info.TLabel").grid(
+        row=1, column=2, sticky='W')
+    ttk.Label(info, text='GITHUB:', style="YH10info.TLabel").grid(
+        row=2, column=1, sticky='E')
+    openurl = ttk.Label(info, text='https://github.com/xx523853176/WeiboBlackList',
+                        style="YH10url.TLabel")
+    openurl.grid(row=2, column=2, sticky='W')
+    openurl.bind('<Double-Button-1>', openurl_func)
+    ttk.Label(info, text='Version:', style="YH10info.TLabel").grid(
+        row=3, column=1, sticky='E')
+    ttk.Label(info, text='1.1.20171014', style="YH10info.TLabel").grid(
+        row=3, column=2, sticky='W')
+    
+    ttk.Button(tl, text='关 闭', width=10, command=lambda:tl.destroy()).grid(
+        row=2, column=1, columnspan=100, padx=10, sticky='E')
+    
+    
+ttk.Button(win, text='关于……', style="YH10blue.TLabel", command=about).grid(
+    row=31, column=1, columnspan=100, padx=10, pady=5, sticky='N')
 
-ttk.Label(lfn, text='Author：', style="YH10grey.TLabel").grid(row=1, column=15, sticky='N')
-ttk.Label(lfn, text='HUSKY(xx523853176)', style="YH10grey.TLabel").grid(row=1, column=16, sticky='N')
-ttk.Label(lfn, text='Version：', style="YH10grey.TLabel").grid(row=11, column=15, sticky='N')
-ttk.Label(lfn, text=version, style="YH10grey.TLabel").grid(row=11, column=16, sticky='N')
 
+########################################
+########################################
+def haveread(root):
+    entry_username.configure(state='normal')
+    entry_password.configure(state='normal')
+    root.destroy()
+    
+def somehelp():
+    tl = tk.Toplevel()
+    tl.overrideredirect(True)
+    tl_width = 490#宽
+    tl_height = 300#高
+    scnWidth,scnHeight = tl.maxsize()
+    tmpcnf = '%dx%d+%d+%d'%(tl_width, tl_height,
+                            (scnWidth-tl_width)/2, (scnHeight-tl_height)/2)
+    tl.geometry(tmpcnf)
+    
+    info = ttk.LabelFrame(tl, text=' 看一眼！看一眼~~~ ')
+    info.grid(row=1, column=1, columnspan=100, padx=10, pady=10, sticky='N')
+    for i in [0,100]:
+        info.rowconfigure(i, minsize=10)
+        info.columnconfigure(i, minsize=20)
+
+    ttk.Label(info, text='1、', style="YH10infoblue.TLabel").grid(row=1, column=1, sticky='NE')
+    ttk.Label(info, text='若账号密码输入无误\n本程序会有数秒时间忙碌工作（即未响应）来进行登陆工作。\n"忙碌时间"视当前网络状况而定',
+              wraplength=400, style="YH10infoblue.TLabel").grid(
+                  row=1, column=2, sticky='W')
+    ttk.Label(info, text='2、', style="YH10infored.TLabel").grid(row=2, column=1, sticky='NE')
+    ttk.Label(info, text='请勿连续多次点击“登陆”按钮！！\n否则可能导致帐号被暂时锁定！！！！\n若控制台 ①无提示 / ②提示“Expecting value: line 1 column 1 (char 0)”，则为{账号or密码错误}，请检查或测试后再进行登录。',
+              wraplength=400, style="YH10infored.TLabel").grid(
+                  row=2, column=2, sticky='W')
+    ttk.Label(info, text='3、', style="YH10blue.TLabel").grid(row=3, column=1, sticky='NE')
+    ttk.Label(info, text='请求速度请勿定义过快（如0-0秒），以防被检测。请自行斟酌使用。。。毕竟点一下后台运行就行了，何必要块那1、2分钟……',
+              wraplength=400, style="YH10blue.TLabel").grid(
+                  row=3, column=2, sticky='W')
+    ttk.Label(info, text='4、', style="YH10black.TLabel").grid(row=4, column=1, sticky='NE')
+    ttk.Label(info, text='使用前请务必看完以上内容，因不了解以上问题而造成的封号等情况，概不负责',
+              wraplength=400, style="YH10black.TLabel").grid(
+                  row=4, column=2, sticky='W')
+
+    ttk.Button(tl, text='已阅读', width=10, command=lambda:haveread(tl)).grid(
+        row=2, column=1, columnspan=100, padx=10, sticky='E')
+
+
+ttk.Button(win, text='务必【！点一下这里！】，否则无法登陆哈哈哈哈d=====(￣▽￣*)b',
+           style="YH10red.TLabel", command=somehelp).grid(
+               row=32, column=1, columnspan=100, padx=10, sticky='N')
+
+
+########################################
+########################################
 
 win.mainloop()
